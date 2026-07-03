@@ -430,6 +430,10 @@
           <input type="text" id="geIniciales" placeholder="Ej: JP" maxlength="4">
         </div>
         <div class="field full">
+          <label for="geEmail">Email (cuenta @puelchehc.com)</label>
+          <input type="email" id="geEmail" placeholder="nombre@puelchehc.com">
+        </div>
+        <div class="field full">
           <label for="geFechaIngreso">Fecha de ingreso</label>
           <input type="date" id="geFechaIngreso">
         </div>
@@ -503,7 +507,6 @@ async function cargarDatos() {
     poblarSelectEmpleados();
     renderSaldos();
     renderListado();
-    aplicarModoTrabajador();
   } catch (err) {
     document.getElementById('saldosList').innerHTML = '<div class="empty-state">No se pudo cargar la información. Revisa la conexión con Google Sheets. (' + err.message + ')</div>';
   }
@@ -558,38 +561,61 @@ function renderResumen() {
   }).join('');
 }
 
-// ---- Modo trabajador: link personal que solo muestra su resumen ----
+// ---- Modo personal: link seguro que solo trae los datos de quien inició sesión ----
 const PARAMS_URL = new URLSearchParams(window.location.search);
-const TRABAJADOR_FIJO = PARAMS_URL.get('trabajador');
+const MODO_PERSONAL = PARAMS_URL.get('modo') === 'personal';
 
-function aplicarModoTrabajador() {
-  if (!TRABAJADOR_FIJO) return;
-
-  const emp = state.empleados.find(e => e.Iniciales === TRABAJADOR_FIJO);
-
+async function cargarResumenPersonal() {
   document.querySelector('nav.tabs').style.display = 'none';
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-resumen').classList.add('active');
 
-  if (!emp) {
-    document.getElementById('view-resumen').innerHTML =
-      '<div class="empty-state">Este link no es válido. Pide que te compartan el link correcto.</div>';
-    return;
-  }
-
   const selectorField = document.getElementById('rEmpleado').closest('.field');
   selectorField.style.display = 'none';
-  document.getElementById('rEmpleado').value = TRABAJADOR_FIJO;
 
-  if (!document.getElementById('resumenNombreFijo')) {
-    const encabezado = document.createElement('div');
-    encabezado.id = 'resumenNombreFijo';
-    encabezado.style.cssText = "font-family:'Fraunces',serif; font-style:italic; font-size:20px; margin-bottom:22px;";
-    encabezado.textContent = emp.Nombre;
-    selectorField.parentNode.insertBefore(encabezado, selectorField);
+  const cont = document.getElementById('resumenAnios');
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + '?action=getMiResumen');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    if (!document.getElementById('resumenNombreFijo')) {
+      const encabezado = document.createElement('div');
+      encabezado.id = 'resumenNombreFijo';
+      encabezado.style.cssText = "font-family:'Fraunces',serif; font-style:italic; font-size:20px; margin-bottom:22px;";
+      encabezado.textContent = data.nombre;
+      selectorField.parentNode.insertBefore(encabezado, selectorField);
+    }
+
+    document.getElementById('resumenSaldoNum').textContent = data.saldoActual + ' días';
+
+    const porAnio = {};
+    data.solicitudes.forEach(s => {
+      const y = new Date(s.FechaInicio + 'T00:00:00').getFullYear();
+      porAnio[y] = (porAnio[y] || 0) + Number(s.DiasHabiles);
+    });
+
+    const anios = Object.keys(porAnio).sort((a, b) => b - a);
+    if (!anios.length) {
+      cont.innerHTML = '<div class="empty-state">Sin vacaciones registradas todavía.</div>';
+      return;
+    }
+
+    const max = Math.max(...anios.map(a => porAnio[a]));
+    cont.innerHTML = anios.map(a => {
+      const val = Math.round(porAnio[a] * 100) / 100;
+      const pct = Math.max(4, Math.min(100, (val / max) * 100));
+      return `
+        <div class="saldo-row">
+          <div><div class="nombre">${a}</div></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <div class="valor">${val}</div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    cont.innerHTML = '<div class="empty-state">' + err.message + '</div>';
   }
-
-  renderResumen();
 }
 
 // ---- Cálculo de fecha de término a partir de fecha inicio + días hábiles (lun-vie) ----
@@ -877,13 +903,14 @@ function actualizarPreviewIngreso() {
 document.getElementById('geBtnAgregar').addEventListener('click', async () => {
   const nombre = document.getElementById('geNombre').value.trim();
   const iniciales = document.getElementById('geIniciales').value.trim();
+  const email = document.getElementById('geEmail').value.trim();
   const fechaIngreso = document.getElementById('geFechaIngreso').value;
   const toast = document.getElementById('geToast');
   const btn = document.getElementById('geBtnAgregar');
 
-  if (!nombre || !iniciales || !fechaIngreso) {
+  if (!nombre || !iniciales || !fechaIngreso || !email) {
     toast.className = 'toast err';
-    toast.textContent = 'Completa nombre, iniciales y fecha de ingreso.';
+    toast.textContent = 'Completa nombre, iniciales, email y fecha de ingreso.';
     return;
   }
   if (state.empleados.some(e => e.Iniciales.toLowerCase() === iniciales.toLowerCase())) {
@@ -903,7 +930,7 @@ document.getElementById('geBtnAgregar').addEventListener('click', async () => {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'addEmpleado',
-        record: { nombre, iniciales, saldoBase: saldo, fechaCorte: corte }
+        record: { nombre, iniciales, email, saldoBase: saldo, fechaCorte: corte }
       })
     });
     const data = await res.json();
@@ -914,6 +941,7 @@ document.getElementById('geBtnAgregar').addEventListener('click', async () => {
 
     document.getElementById('geNombre').value = '';
     document.getElementById('geIniciales').value = '';
+    document.getElementById('geEmail').value = '';
     document.getElementById('geFechaIngreso').value = '';
     document.getElementById('geSaldoPreview').textContent = '';
 
@@ -971,7 +999,11 @@ async function eliminarEmpleado(iniciales, btnEl) {
   }
 }
 
-cargarDatos();
+if (MODO_PERSONAL) {
+  cargarResumenPersonal();
+} else {
+  cargarDatos();
+}
 </script>
 
 </body>
