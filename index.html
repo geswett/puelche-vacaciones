@@ -128,6 +128,7 @@
     border-color:var(--green);
   }
   .field textarea{ resize:vertical; min-height:60px; font-family:'Inter',sans-serif; }
+  .field input[readonly]{ background:#FAFAF8; color:var(--muted); }
 
   .saldo-preview{
     max-width:560px;
@@ -163,6 +164,42 @@
   }
   button.primary:hover{ background:var(--green); }
   button.primary:disabled{ background:#C6C6C0; cursor:default; }
+
+  button.secondary{
+    appearance:none;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    font-weight:500;
+    font-size:13px;
+    padding:9px 16px;
+    border-radius:var(--radius);
+    cursor:pointer;
+  }
+  button.secondary:hover{ border-color:var(--green); color:var(--green); }
+
+  .ge-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 0;
+    border-bottom:1px solid var(--line);
+    font-size:13.5px;
+  }
+  .ge-row .iniciales{ color:var(--muted); font-size:11.5px; margin-left:6px; }
+  .ge-delete{
+    appearance:none;
+    border:none;
+    background:none;
+    color:var(--red);
+    font-size:12.5px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+    padding:0;
+  }
+  .ge-delete:hover{ text-decoration:underline; }
+  .ge-delete:disabled{ color:var(--muted); cursor:default; text-decoration:none; }
 
   .toast{
     max-width:560px;
@@ -219,31 +256,91 @@
     border:1px solid var(--line);
     border-radius:var(--radius);
   }
-  .mes-block{ margin-bottom:30px; }
+  .cal-months-grid{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:12px 28px;
+  }
+  .mes-block{ margin-bottom:0; }
   .mes-block h3{
     font-family:'Fraunces',serif;
     font-style:italic;
     font-weight:500;
-    font-size:16px;
-    margin:0 0 10px;
+    font-size:14.5px;
+    margin:0 0 8px;
     text-transform:capitalize;
   }
-  table.list{ width:100%; border-collapse:collapse; font-size:13.5px; }
-  table.list th{
-    text-align:left;
-    font-size:11px;
+  .cal-legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:16px 20px;
+    margin-bottom:28px;
+    padding-bottom:20px;
+    border-bottom:1px solid var(--line);
+  }
+  .cal-legend-item{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-size:13px;
+    color:var(--ink);
+  }
+  .cal-legend-dot{
+    width:9px; height:9px;
+    border-radius:50%;
+    display:inline-block;
+    flex-shrink:0;
+  }
+  .cal-grid{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+  }
+  .cal-weekday{
+    background:#fff;
+    text-align:center;
+    font-size:9px;
     text-transform:uppercase;
     letter-spacing:.05em;
     color:var(--muted);
     font-weight:500;
-    padding:6px 10px 6px 0;
-    border-bottom:1px solid var(--line);
+    padding:5px 0;
   }
-  table.list td{
-    padding:9px 10px 9px 0;
-    border-bottom:1px solid var(--line);
+  .cal-cell{
+    background:#fff;
+    min-height:38px;
+    padding:3px 4px;
+    position:relative;
   }
-  table.list td.dias{ font-family:'IBM Plex Mono',monospace; text-align:right; padding-right:0; }
+  .cal-cell.empty{ background:#FAFAF8; }
+  .cal-cell.has-vac{ background:var(--green-tint); }
+  .cal-daynum{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:9.5px;
+    color:var(--muted);
+  }
+  .cal-dots{
+    display:flex;
+    flex-wrap:wrap;
+    gap:2px;
+    margin-top:2px;
+  }
+  .cal-dot{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:7.5px;
+    font-weight:500;
+    color:#fff;
+    padding:1px 3px;
+    border-radius:2px;
+    line-height:1.3;
+  }
+  @media (max-width: 640px){
+    .cal-months-grid{ grid-template-columns:1fr; }
+    .cal-cell{ min-height:40px; padding:4px; }
+    .cal-dot{ font-size:8px; padding:1px 3px; }
+  }
   .empty-state{
     padding:40px 0;
     color:var(--muted);
@@ -265,6 +362,7 @@
 <nav class="tabs">
   <button class="tab-btn active" data-view="formulario">Ingresar vacaciones</button>
   <button class="tab-btn" data-view="saldos">Saldos del equipo</button>
+  <button class="tab-btn" data-view="resumen">Resumen por persona</button>
   <button class="tab-btn" data-view="listado">Listado mensual</button>
 </nav>
 
@@ -285,12 +383,12 @@
         <input type="date" id="fInicio">
       </div>
       <div class="field">
-        <label for="fFin">Fecha término</label>
-        <input type="date" id="fFin">
-      </div>
-      <div class="field">
         <label for="fDias">Días hábiles</label>
         <input type="number" id="fDias" step="0.5" min="0">
+      </div>
+      <div class="field">
+        <label for="fFin">Fecha término (calculada)</label>
+        <input type="date" id="fFin" readonly>
       </div>
       <div class="field full">
         <label for="fComentario">Comentario (opcional)</label>
@@ -315,6 +413,53 @@
     <p class="section-sub">Días progresivos disponibles, calculados a hoy (1,25 días acumulados por mes trabajado).</p>
     <div id="saldosList"><div class="loading">Cargando…</div></div>
     <div class="saldo-footnote" id="saldosFootnote"></div>
+
+    <button class="secondary" id="btnGestionEquipo" style="margin-top:24px;">Gestionar equipo</button>
+
+    <div id="gestionEquipoPanel" style="display:none; margin-top:20px; padding:22px; border:1px solid var(--line); border-radius:2px; max-width:520px;">
+      <h3 style="font-family:'Fraunces',serif; font-style:italic; font-weight:500; font-size:15px; margin:0 0 4px;">Agregar trabajador</h3>
+      <p class="section-sub" style="margin-bottom:16px;">El saldo inicial se calcula proporcional a los días trabajados hasta fin de ese mes.</p>
+
+      <div class="form-grid" style="max-width:480px;">
+        <div class="field">
+          <label for="geNombre">Nombre</label>
+          <input type="text" id="geNombre" placeholder="Nombre completo">
+        </div>
+        <div class="field">
+          <label for="geIniciales">Iniciales</label>
+          <input type="text" id="geIniciales" placeholder="Ej: JP" maxlength="4">
+        </div>
+        <div class="field full">
+          <label for="geFechaIngreso">Fecha de ingreso</label>
+          <input type="date" id="geFechaIngreso">
+        </div>
+      </div>
+      <div class="saldo-footnote" id="geSaldoPreview" style="margin-top:10px;"></div>
+      <button class="primary" id="geBtnAgregar" style="margin-top:16px;">Agregar</button>
+      <div class="toast" id="geToast"></div>
+
+      <h3 style="font-family:'Fraunces',serif; font-style:italic; font-weight:500; font-size:15px; margin:32px 0 4px;">Trabajadores actuales</h3>
+      <div id="geLista"></div>
+    </div>
+  </section>
+
+  <!-- RESUMEN POR PERSONA -->
+  <section class="view" id="view-resumen">
+    <h2 class="section-title">Resumen por persona</h2>
+    <p class="section-sub">Saldo actual y días de vacaciones tomados por año.</p>
+
+    <div class="field" style="max-width:280px; margin-bottom:24px;">
+      <label for="rEmpleado">Persona</label>
+      <select id="rEmpleado"></select>
+    </div>
+
+    <div class="saldo-preview" id="resumenSaldoBox" style="max-width:280px; display:flex;">
+      <div>Saldo actual</div>
+      <div class="num" id="resumenSaldoNum">—</div>
+    </div>
+
+    <h3 style="font-family:'Fraunces',serif; font-style:italic; font-weight:500; font-size:16px; margin:32px 0 4px;">Días tomados por año</h3>
+    <div id="resumenAnios"><div class="loading">Cargando…</div></div>
   </section>
 
   <!-- LISTADO -->
@@ -331,7 +476,7 @@
 
 <script>
 // ======= CONFIGURACIÓN =======
-const APPS_SCRIPT_URL = 'https://script.google.com/a/macros/puelchehc.com/s/AKfycbwksSaKepYikxdX5QpnT_2p0h8fgfQppT_qDvBqWspTZ6jY3_z_giYNz3aXXKLKhwci/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwksSaKepYikxdX5QpnT_2p0h8fgfQppT_qDvBqWspTZ6jY3_z_giYNz3aXXKLKhwci/exec';
 // ==============================
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -358,6 +503,7 @@ async function cargarDatos() {
     poblarSelectEmpleados();
     renderSaldos();
     renderListado();
+    aplicarModoTrabajador();
   } catch (err) {
     document.getElementById('saldosList').innerHTML = '<div class="empty-state">No se pudo cargar la información. Revisa la conexión con Google Sheets. (' + err.message + ')</div>';
   }
@@ -367,34 +513,118 @@ function poblarSelectEmpleados() {
   const sel = document.getElementById('fEmpleado');
   sel.innerHTML = state.empleados.map(e => `<option value="${e.Iniciales}">${e.Nombre}</option>`).join('');
   actualizarPreviewSaldo();
+
+  const selResumen = document.getElementById('rEmpleado');
+  const valorPrevio = selResumen.value;
+  selResumen.innerHTML = state.empleados.map(e => `<option value="${e.Iniciales}">${e.Nombre}</option>`).join('');
+  if (valorPrevio) selResumen.value = valorPrevio;
+  renderResumen();
 }
 
-// ---- Cálculo de días hábiles (lun-vie) ----
-function calcularDiasHabiles(inicio, fin) {
-  const d1 = new Date(inicio + 'T00:00:00');
-  const d2 = new Date(fin + 'T00:00:00');
-  if (isNaN(d1) || isNaN(d2) || d2 < d1) return 0;
-  let dias = 0;
-  const cur = new Date(d1);
-  while (cur <= d2) {
+document.getElementById('rEmpleado').addEventListener('change', renderResumen);
+
+function renderResumen() {
+  const iniciales = document.getElementById('rEmpleado').value;
+  const emp = state.empleados.find(e => e.Iniciales === iniciales);
+  const cont = document.getElementById('resumenAnios');
+  if (!emp) return;
+
+  document.getElementById('resumenSaldoNum').textContent = emp.SaldoActual + ' días';
+
+  const porAnio = {};
+  state.solicitudes
+    .filter(s => s.Iniciales === iniciales)
+    .forEach(s => {
+      const y = new Date(s.FechaInicio + 'T00:00:00').getFullYear();
+      porAnio[y] = (porAnio[y] || 0) + Number(s.DiasHabiles);
+    });
+
+  const anios = Object.keys(porAnio).sort((a, b) => b - a);
+  if (!anios.length) {
+    cont.innerHTML = '<div class="empty-state">Sin vacaciones registradas para esta persona.</div>';
+    return;
+  }
+
+  const max = Math.max(...anios.map(a => porAnio[a]));
+  cont.innerHTML = anios.map(a => {
+    const val = Math.round(porAnio[a] * 100) / 100;
+    const pct = Math.max(4, Math.min(100, (val / max) * 100));
+    return `
+      <div class="saldo-row">
+        <div><div class="nombre">${a}</div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        <div class="valor">${val}</div>
+      </div>`;
+  }).join('');
+}
+
+// ---- Modo trabajador: link personal que solo muestra su resumen ----
+const PARAMS_URL = new URLSearchParams(window.location.search);
+const TRABAJADOR_FIJO = PARAMS_URL.get('trabajador');
+
+function aplicarModoTrabajador() {
+  if (!TRABAJADOR_FIJO) return;
+
+  const emp = state.empleados.find(e => e.Iniciales === TRABAJADOR_FIJO);
+
+  document.querySelector('nav.tabs').style.display = 'none';
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-resumen').classList.add('active');
+
+  if (!emp) {
+    document.getElementById('view-resumen').innerHTML =
+      '<div class="empty-state">Este link no es válido. Pide que te compartan el link correcto.</div>';
+    return;
+  }
+
+  const selectorField = document.getElementById('rEmpleado').closest('.field');
+  selectorField.style.display = 'none';
+  document.getElementById('rEmpleado').value = TRABAJADOR_FIJO;
+
+  if (!document.getElementById('resumenNombreFijo')) {
+    const encabezado = document.createElement('div');
+    encabezado.id = 'resumenNombreFijo';
+    encabezado.style.cssText = "font-family:'Fraunces',serif; font-style:italic; font-size:20px; margin-bottom:22px;";
+    encabezado.textContent = emp.Nombre;
+    selectorField.parentNode.insertBefore(encabezado, selectorField);
+  }
+
+  renderResumen();
+}
+
+// ---- Cálculo de fecha de término a partir de fecha inicio + días hábiles (lun-vie) ----
+function calcularFechaFin(inicioStr, dias) {
+  const diasEnteros = Math.ceil(Number(dias));
+  if (!inicioStr || diasEnteros <= 0) return '';
+  const cur = new Date(inicioStr + 'T00:00:00');
+  if (isNaN(cur)) return '';
+  let contados = 0;
+  while (contados < diasEnteros) {
     const day = cur.getDay();
-    if (day !== 0 && day !== 6) dias++;
+    if (day !== 0 && day !== 6) {
+      contados++;
+      if (contados === diasEnteros) break;
+    }
     cur.setDate(cur.getDate() + 1);
   }
-  return dias;
+  return formatISO(cur);
 }
 
-document.getElementById('fInicio').addEventListener('change', autoCalcularDias);
-document.getElementById('fFin').addEventListener('change', autoCalcularDias);
-document.getElementById('fEmpleado').addEventListener('change', actualizarPreviewSaldo);
-document.getElementById('fDias').addEventListener('input', actualizarPreviewSaldo);
+function formatISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
-function autoCalcularDias() {
+document.getElementById('fInicio').addEventListener('change', autoCalcularFin);
+document.getElementById('fDias').addEventListener('input', autoCalcularFin);
+document.getElementById('fEmpleado').addEventListener('change', actualizarPreviewSaldo);
+
+function autoCalcularFin() {
   const inicio = document.getElementById('fInicio').value;
-  const fin = document.getElementById('fFin').value;
-  if (inicio && fin) {
-    document.getElementById('fDias').value = calcularDiasHabiles(inicio, fin);
-  }
+  const dias = document.getElementById('fDias').value;
+  document.getElementById('fFin').value = calcularFechaFin(inicio, dias);
   actualizarPreviewSaldo();
 }
 
@@ -488,7 +718,79 @@ function renderSaldos() {
     'Cada persona acumula 1,25 días por mes trabajado. El saldo se actualiza automáticamente y descuenta cada solicitud registrada.';
 }
 
-// ---- Vista Listado mensual ----
+// ---- Vista Listado mensual (calendario) ----
+const COLOR_MAP = {
+  ML: '#2F5233',
+  CdV: '#3D5A80',
+  MJC: '#B8863B',
+  RA: '#8B4049'
+};
+const FALLBACK_COLORS = ['#5B7065', '#6B5B8C', '#8C6B4F', '#4F6B8C'];
+
+function colorFor(iniciales) {
+  if (COLOR_MAP[iniciales]) return COLOR_MAP[iniciales];
+  let hash = 0;
+  for (let i = 0; i < iniciales.length; i++) hash = iniciales.charCodeAt(i) + ((hash << 5) - hash);
+  return FALLBACK_COLORS[Math.abs(hash) % FALLBACK_COLORS.length];
+}
+
+function nombreDe(iniciales) {
+  return (state.empleados.find(e => e.Iniciales === iniciales) || {}).Nombre || iniciales;
+}
+
+function construirMapaDias(solicitudes) {
+  const mapa = {};
+  solicitudes.forEach(s => {
+    const d1 = new Date(s.FechaInicio + 'T00:00:00');
+    const d2 = new Date(s.FechaFin + 'T00:00:00');
+    if (isNaN(d1) || isNaN(d2)) return;
+    const cur = new Date(d1);
+    while (cur <= d2) {
+      const day = cur.getDay();
+      if (day !== 0 && day !== 6) {
+        const key = formatISO(cur);
+        if (!mapa[key]) mapa[key] = [];
+        mapa[key].push(s.Iniciales);
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+  return mapa;
+}
+
+function renderLeyenda() {
+  return `<div class="cal-legend">${state.empleados.map(e => `
+    <span class="cal-legend-item">
+      <span class="cal-legend-dot" style="background:${colorFor(e.Iniciales)}"></span>${e.Nombre}
+    </span>`).join('')}</div>`;
+}
+
+function renderCalendarioMes(year, month, mapaDias) {
+  const primerDia = new Date(year, month, 1);
+  const diasEnMes = new Date(year, month + 1, 0).getDate();
+  let offset = primerDia.getDay() - 1;
+  if (offset < 0) offset = 6;
+
+  let celdas = '';
+  for (let i = 0; i < offset; i++) celdas += '<div class="cal-cell empty"></div>';
+
+  for (let d = 1; d <= diasEnMes; d++) {
+    const key = formatISO(new Date(year, month, d));
+    const gente = [...new Set(mapaDias[key] || [])];
+    const dots = gente.map(ini => `<span class="cal-dot" style="background:${colorFor(ini)}" title="${nombreDe(ini)}">${ini}</span>`).join('');
+    celdas += `<div class="cal-cell${gente.length ? ' has-vac' : ''}"><span class="cal-daynum">${d}</span><div class="cal-dots">${dots}</div></div>`;
+  }
+
+  return `
+    <div class="mes-block">
+      <h3>${MESES[month]} ${year}</h3>
+      <div class="cal-grid">
+        <div class="cal-weekday">L</div><div class="cal-weekday">M</div><div class="cal-weekday">M</div><div class="cal-weekday">J</div><div class="cal-weekday">V</div><div class="cal-weekday">S</div><div class="cal-weekday">D</div>
+        ${celdas}
+      </div>
+    </div>`;
+}
+
 function renderListado() {
   const filtro = document.getElementById('filtroAnio');
   const anios = [...new Set(state.solicitudes.map(s => new Date(s.FechaInicio).getFullYear()))].sort((a,b) => b - a);
@@ -501,49 +803,172 @@ function renderListado() {
   }
 
   const anioSel = filtro.value;
-  let solicitudes = [...state.solicitudes].sort((a,b) => new Date(b.FechaInicio) - new Date(a.FechaInicio));
+  let solicitudes = [...state.solicitudes];
   if (anioSel !== 'todos') {
-    solicitudes = solicitudes.filter(s => new Date(s.FechaInicio).getFullYear() === Number(anioSel));
+    solicitudes = solicitudes.filter(s => {
+      const y1 = new Date(s.FechaInicio).getFullYear();
+      const y2 = new Date(s.FechaFin).getFullYear();
+      return y1 === Number(anioSel) || y2 === Number(anioSel);
+    });
   }
 
   const cont = document.getElementById('listadoContainer');
-  if (!solicitudes.length) {
+
+  const mapaDias = construirMapaDias(solicitudes);
+
+  let metaArr;
+  if (anioSel !== 'todos') {
+    // Año específico: mostrar los 12 meses, tengan o no vacaciones registradas
+    const y = Number(anioSel);
+    metaArr = Array.from({ length: 12 }, (_, m) => [y, m]);
+  } else {
+    // Todos los años: mostrar solo los meses que efectivamente tienen datos
+    const metas = new Set();
+    solicitudes.forEach(s => {
+      const d1 = new Date(s.FechaInicio + 'T00:00:00');
+      const d2 = new Date(s.FechaFin + 'T00:00:00');
+      if (!isNaN(d1)) metas.add(d1.getFullYear() + ',' + d1.getMonth());
+      if (!isNaN(d2)) metas.add(d2.getFullYear() + ',' + d2.getMonth());
+    });
+    metaArr = [...metas]
+      .map(m => m.split(',').map(Number))
+      .sort((a, b) => (b[0] - a[0]) || (b[1] - a[1]));
+  }
+
+  if (!metaArr.length) {
     cont.innerHTML = '<div class="empty-state">No hay vacaciones registradas para este período.</div>';
     return;
   }
 
-  const grupos = {};
-  solicitudes.forEach(s => {
-    const d = new Date(s.FechaInicio);
-    const key = d.getFullYear() + '-' + String(d.getMonth()).padStart(2,'0');
-    if (!grupos[key]) grupos[key] = { label: MESES[d.getMonth()] + ' ' + d.getFullYear(), items: [] };
-    grupos[key].items.push(s);
-  });
-
-  const nombreDe = iniciales => (state.empleados.find(e => e.Iniciales === iniciales) || {}).Nombre || iniciales;
-
-  cont.innerHTML = Object.keys(grupos).sort().reverse().map(key => {
-    const g = grupos[key];
-    const filas = g.items.map(s => `
-      <tr>
-        <td>${nombreDe(s.Iniciales)}</td>
-        <td>${formatFecha(s.FechaInicio)} — ${formatFecha(s.FechaFin)}</td>
-        <td class="dias">${s.DiasHabiles}</td>
-      </tr>`).join('');
-    return `
-      <div class="mes-block">
-        <h3>${g.label}</h3>
-        <table class="list">
-          <thead><tr><th>Persona</th><th>Período</th><th style="text-align:right">Días</th></tr></thead>
-          <tbody>${filas}</tbody>
-        </table>
-      </div>`;
-  }).join('');
+  cont.innerHTML = renderLeyenda() + '<div class="cal-months-grid">' + metaArr.map(([y, m]) => renderCalendarioMes(y, m, mapaDias)).join('') + '</div>';
 }
 
-function formatFecha(iso) {
-  const d = new Date(iso + (String(iso).length <= 10 ? 'T00:00:00' : ''));
-  return d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short' });
+// ---- Gestión de equipo (agregar / eliminar) ----
+document.getElementById('btnGestionEquipo').addEventListener('click', () => {
+  const panel = document.getElementById('gestionEquipoPanel');
+  const abrir = panel.style.display === 'none';
+  panel.style.display = abrir ? 'block' : 'none';
+  if (abrir) renderListaEquipo();
+});
+
+document.getElementById('geFechaIngreso').addEventListener('change', actualizarPreviewIngreso);
+
+function calcularSaldoProrateado(fechaIngresoStr) {
+  const ingreso = new Date(fechaIngresoStr + 'T00:00:00');
+  const year = ingreso.getFullYear();
+  const month = ingreso.getMonth();
+  const diasEnMes = new Date(year, month + 1, 0).getDate();
+  const diaIngreso = ingreso.getDate();
+  const diasTrabajados = diasEnMes - diaIngreso + 1;
+  const proporcion = Math.max(0, Math.min(1, diasTrabajados / diasEnMes));
+  const saldo = Math.round(1.25 * proporcion * 100) / 100;
+  const corte = formatISO(new Date(year, month + 1, 0));
+  return { saldo, corte, diasEnMes, diasTrabajados };
+}
+
+function actualizarPreviewIngreso() {
+  const fecha = document.getElementById('geFechaIngreso').value;
+  const preview = document.getElementById('geSaldoPreview');
+  if (!fecha) { preview.textContent = ''; return; }
+  const { saldo, corte, diasEnMes, diasTrabajados } = calcularSaldoProrateado(fecha);
+  preview.textContent = `Trabajó ${diasTrabajados} de ${diasEnMes} días del mes → saldo inicial estimado: ${saldo} días (corte al ${corte})`;
+}
+
+document.getElementById('geBtnAgregar').addEventListener('click', async () => {
+  const nombre = document.getElementById('geNombre').value.trim();
+  const iniciales = document.getElementById('geIniciales').value.trim();
+  const fechaIngreso = document.getElementById('geFechaIngreso').value;
+  const toast = document.getElementById('geToast');
+  const btn = document.getElementById('geBtnAgregar');
+
+  if (!nombre || !iniciales || !fechaIngreso) {
+    toast.className = 'toast err';
+    toast.textContent = 'Completa nombre, iniciales y fecha de ingreso.';
+    return;
+  }
+  if (state.empleados.some(e => e.Iniciales.toLowerCase() === iniciales.toLowerCase())) {
+    toast.className = 'toast err';
+    toast.textContent = 'Ya existe una persona con esas iniciales.';
+    return;
+  }
+
+  const { saldo, corte } = calcularSaldoProrateado(fechaIngreso);
+
+  btn.disabled = true;
+  btn.textContent = 'Agregando…';
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'addEmpleado',
+        record: { nombre, iniciales, saldoBase: saldo, fechaCorte: corte }
+      })
+    });
+    const data = await res.json();
+    if (data.error || data.ok === false) throw new Error(data.error || 'Error desconocido');
+
+    toast.className = 'toast ok';
+    toast.textContent = `${nombre} agregado con saldo inicial de ${saldo} días (corte al ${corte}).`;
+
+    document.getElementById('geNombre').value = '';
+    document.getElementById('geIniciales').value = '';
+    document.getElementById('geFechaIngreso').value = '';
+    document.getElementById('geSaldoPreview').textContent = '';
+
+    await cargarDatos();
+    renderListaEquipo();
+  } catch (err) {
+    toast.className = 'toast err';
+    toast.textContent = 'No se pudo agregar: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Agregar';
+  }
+});
+
+function renderListaEquipo() {
+  const cont = document.getElementById('geLista');
+  if (!state.empleados.length) {
+    cont.innerHTML = '<div class="empty-state">No hay trabajadores cargados.</div>';
+    return;
+  }
+  cont.innerHTML = state.empleados.map(e => `
+    <div class="ge-row">
+      <span>${e.Nombre} <span class="iniciales">${e.Iniciales}</span></span>
+      <button class="ge-delete" data-iniciales="${e.Iniciales}">Eliminar</button>
+    </div>`).join('');
+
+  cont.querySelectorAll('.ge-delete').forEach(btn => {
+    btn.addEventListener('click', () => eliminarEmpleado(btn.dataset.iniciales, btn));
+  });
+}
+
+async function eliminarEmpleado(iniciales, btnEl) {
+  const emp = state.empleados.find(e => e.Iniciales === iniciales);
+  const nombre = emp ? emp.Nombre : iniciales;
+  if (!confirm(`¿Eliminar a ${nombre} del equipo? Su historial de vacaciones se conserva, pero ya no va a aparecer en saldos, resumen ni en el formulario de ingreso.`)) return;
+
+  btnEl.disabled = true;
+  btnEl.textContent = 'Eliminando…';
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'deleteEmpleado', iniciales })
+    });
+    const data = await res.json();
+    if (data.error || data.ok === false) throw new Error(data.error || 'Error desconocido');
+
+    await cargarDatos();
+    renderListaEquipo();
+  } catch (err) {
+    alert('No se pudo eliminar: ' + err.message);
+    btnEl.disabled = false;
+    btnEl.textContent = 'Eliminar';
+  }
 }
 
 cargarDatos();
