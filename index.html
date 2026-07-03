@@ -201,6 +201,30 @@
   .ge-delete:hover{ text-decoration:underline; }
   .ge-delete:disabled{ color:var(--muted); cursor:default; text-decoration:none; }
 
+  .tabla-solicitudes{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  .tabla-solicitudes th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--muted); font-weight:500; padding:8px 10px 8px 0; border-bottom:1px solid var(--line);
+  }
+  .tabla-solicitudes td{ padding:10px 10px 10px 0; border-bottom:1px solid var(--line); vertical-align:middle; }
+  .tabla-solicitudes td.dias{ font-family:'IBM Plex Mono',monospace; }
+  .tabla-solicitudes td.comentario{ color:var(--muted); font-size:12.5px; max-width:220px; }
+  .tabla-solicitudes input, .tabla-solicitudes select{
+    font-family:'Inter',sans-serif; font-size:13px; padding:6px 8px;
+    border:1px solid var(--line); border-radius:var(--radius); width:100%;
+  }
+  .acciones-row{ display:flex; gap:12px; white-space:nowrap; }
+  .accion-btn{
+    appearance:none; border:none; background:none; cursor:pointer;
+    font-family:'Inter',sans-serif; font-size:12.5px; padding:0;
+  }
+  .accion-btn.editar{ color:var(--green); }
+  .accion-btn.eliminar{ color:var(--red); }
+  .accion-btn.guardar{ color:var(--green); font-weight:500; }
+  .accion-btn.cancelar{ color:var(--muted); }
+  .accion-btn:hover{ text-decoration:underline; }
+  .accion-btn:disabled{ color:var(--muted); cursor:default; text-decoration:none; }
+
   .toast{
     max-width:560px;
     margin-top:18px;
@@ -364,6 +388,7 @@
   <button class="tab-btn" data-view="saldos">Saldos del equipo</button>
   <button class="tab-btn" data-view="resumen">Resumen por persona</button>
   <button class="tab-btn" data-view="listado">Listado mensual</button>
+  <button class="tab-btn" data-view="solicitudes">Solicitudes</button>
 </nav>
 
 <main>
@@ -461,6 +486,7 @@
       <div>Saldo actual</div>
       <div class="num" id="resumenSaldoNum">—</div>
     </div>
+    <p class="saldo-footnote" id="resumenSaldoNota" style="max-width:280px;"></p>
 
     <h3 style="font-family:'Fraunces',serif; font-style:italic; font-weight:500; font-size:16px; margin:32px 0 4px;">Días tomados por año</h3>
     <div id="resumenAnios"><div class="loading">Cargando…</div></div>
@@ -476,6 +502,23 @@
     <div id="listadoContainer"><div class="loading">Cargando…</div></div>
   </section>
 
+  <!-- SOLICITUDES (admin: editar / eliminar) -->
+  <section class="view" id="view-solicitudes">
+    <h2 class="section-title">Solicitudes</h2>
+    <p class="section-sub">Listado completo de vacaciones registradas. Puedes editar o eliminar cualquier solicitud.</p>
+    <div class="filter-row">
+      <select id="filtroAnioSolicitudes"></select>
+      <select id="ordenSolicitudes">
+        <option value="fecha_desc">Fecha (más reciente primero)</option>
+        <option value="fecha_asc">Fecha (más antigua primero)</option>
+        <option value="trabajador_asc">Trabajador (A-Z)</option>
+        <option value="trabajador_desc">Trabajador (Z-A)</option>
+      </select>
+    </div>
+    <div id="solicitudesToast" class="toast"></div>
+    <div id="solicitudesContainer"><div class="loading">Cargando…</div></div>
+  </section>
+
 </main>
 
 <script>
@@ -484,6 +527,12 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwksSaKepYikxdX
 // ==============================
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+function textoFinMesActual() {
+  const hoy = new Date();
+  const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+  return ultimoDia.getDate() + ' de ' + MESES[ultimoDia.getMonth()] + ' de ' + ultimoDia.getFullYear();
+}
 
 let state = { empleados: [], solicitudes: [] };
 
@@ -507,6 +556,7 @@ async function cargarDatos() {
     poblarSelectEmpleados();
     renderSaldos();
     renderListado();
+    renderSolicitudesAdmin();
   } catch (err) {
     document.getElementById('saldosList').innerHTML = '<div class="empty-state">No se pudo cargar la información. Revisa la conexión con Google Sheets. (' + err.message + ')</div>';
   }
@@ -533,6 +583,7 @@ function renderResumen() {
   if (!emp) return;
 
   document.getElementById('resumenSaldoNum').textContent = emp.SaldoActual + ' días';
+  document.getElementById('resumenSaldoNota').textContent = 'Corresponde al saldo proyectado al ' + textoFinMesActual() + ' (último día del mes en curso).';
 
   const porAnio = {};
   state.solicitudes
@@ -589,6 +640,7 @@ async function cargarResumenPersonal() {
     }
 
     document.getElementById('resumenSaldoNum').textContent = data.saldoActual + ' días';
+    document.getElementById('resumenSaldoNota').textContent = 'Corresponde al saldo proyectado al ' + textoFinMesActual() + ' (último día del mes en curso).';
 
     const porAnio = {};
     data.solicitudes.forEach(s => {
@@ -741,7 +793,7 @@ function renderSaldos() {
   }).join('');
 
   document.getElementById('saldosFootnote').textContent =
-    'Cada persona acumula 1,25 días por mes trabajado. El saldo se actualiza automáticamente y descuenta cada solicitud registrada.';
+    'Cada persona acumula 1,25 días por mes trabajado. Saldos proyectados al ' + textoFinMesActual() + ' (último día del mes en curso). Se actualizan automáticamente y descuentan cada solicitud registrada.';
 }
 
 // ---- Vista Listado mensual (calendario) ----
@@ -994,6 +1046,195 @@ async function eliminarEmpleado(iniciales, btnEl) {
     renderListaEquipo();
   } catch (err) {
     alert('No se pudo eliminar: ' + err.message);
+    btnEl.disabled = false;
+    btnEl.textContent = 'Eliminar';
+  }
+}
+
+// ---- Vista Solicitudes (admin: editar / eliminar) ----
+let solicitudEditandoId = null;
+
+function nombreDeIniciales(iniciales) {
+  return (state.empleados.find(e => e.Iniciales === iniciales) || {}).Nombre || iniciales;
+}
+
+function renderSolicitudesAdmin() {
+  const filtro = document.getElementById('filtroAnioSolicitudes');
+  const orden = document.getElementById('ordenSolicitudes');
+  const anios = [...new Set(state.solicitudes.map(s => new Date(s.FechaInicio).getFullYear()))].sort((a, b) => b - a);
+  const anioActual = new Date().getFullYear();
+  if (!filtro.dataset.init) {
+    filtro.innerHTML = '<option value="todos">Todos los años</option>' +
+      anios.map(a => `<option value="${a}" ${a === anioActual ? 'selected' : ''}>${a}</option>`).join('');
+    filtro.dataset.init = '1';
+    filtro.addEventListener('change', renderSolicitudesAdmin);
+  }
+  if (!orden.dataset.init) {
+    orden.dataset.init = '1';
+    orden.addEventListener('change', renderSolicitudesAdmin);
+  }
+
+  const anioSel = filtro.value;
+  let solicitudes = [...state.solicitudes];
+  if (anioSel !== 'todos') {
+    solicitudes = solicitudes.filter(s => new Date(s.FechaInicio).getFullYear() === Number(anioSel));
+  }
+
+  const ordenSel = orden.value;
+  solicitudes.sort((a, b) => {
+    if (ordenSel === 'fecha_asc') return new Date(a.FechaInicio) - new Date(b.FechaInicio);
+    if (ordenSel === 'trabajador_asc') return nombreDeIniciales(a.Iniciales).localeCompare(nombreDeIniciales(b.Iniciales)) || (new Date(b.FechaInicio) - new Date(a.FechaInicio));
+    if (ordenSel === 'trabajador_desc') return nombreDeIniciales(b.Iniciales).localeCompare(nombreDeIniciales(a.Iniciales)) || (new Date(b.FechaInicio) - new Date(a.FechaInicio));
+    return new Date(b.FechaInicio) - new Date(a.FechaInicio); // fecha_desc (default)
+  });
+
+  const cont = document.getElementById('solicitudesContainer');
+  if (!solicitudes.length) {
+    cont.innerHTML = '<div class="empty-state">No hay solicitudes registradas para este período.</div>';
+    return;
+  }
+
+  const opcionesEmpleados = state.empleados.map(e => `<option value="${e.Iniciales}">${e.Nombre}</option>`).join('');
+
+  const filas = solicitudes.map(s => {
+    if (String(s.ID) === String(solicitudEditandoId)) {
+      return `
+        <tr data-id="${s.ID}">
+          <td><select class="edit-iniciales">${opcionesEmpleados}</select></td>
+          <td><input type="date" class="edit-inicio" value="${s.FechaInicio}"></td>
+          <td><input type="date" class="edit-fin" value="${s.FechaFin}"></td>
+          <td><input type="number" step="0.5" min="0" class="edit-dias" value="${s.DiasHabiles}" style="width:60px;"></td>
+          <td><input type="text" class="edit-comentario" value="${(s.Comentario || '').replace(/"/g, '&quot;')}"></td>
+          <td>
+            <div class="acciones-row">
+              <button class="accion-btn guardar" data-id="${s.ID}">Guardar</button>
+              <button class="accion-btn cancelar" data-id="${s.ID}">Cancelar</button>
+            </div>
+          </td>
+        </tr>`;
+    }
+    return `
+      <tr>
+        <td>${nombreDeIniciales(s.Iniciales)}</td>
+        <td>${s.FechaInicio}</td>
+        <td>${s.FechaFin}</td>
+        <td class="dias">${s.DiasHabiles}</td>
+        <td class="comentario">${s.Comentario || ''}</td>
+        <td>
+          <div class="acciones-row">
+            <button class="accion-btn editar" data-id="${s.ID}">Editar</button>
+            <button class="accion-btn eliminar" data-id="${s.ID}">Eliminar</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  cont.innerHTML = `
+    <table class="tabla-solicitudes">
+      <thead>
+        <tr>
+          <th>Persona</th><th>Inicio</th><th>Término</th><th>Días</th><th>Comentario</th><th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>${filas}</tbody>
+    </table>`;
+
+  // Preseleccionar el empleado correcto en la fila en edición
+  if (solicitudEditandoId) {
+    const sol = solicitudes.find(s => String(s.ID) === String(solicitudEditandoId));
+    const sel = cont.querySelector('.edit-iniciales');
+    if (sol && sel) sel.value = sol.Iniciales;
+  }
+
+  cont.querySelectorAll('.accion-btn.editar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      solicitudEditandoId = btn.dataset.id;
+      renderSolicitudesAdmin();
+    });
+  });
+
+  cont.querySelectorAll('.accion-btn.cancelar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      solicitudEditandoId = null;
+      renderSolicitudesAdmin();
+    });
+  });
+
+  cont.querySelectorAll('.accion-btn.guardar').forEach(btn => {
+    btn.addEventListener('click', () => guardarEdicionSolicitud(btn.dataset.id, btn));
+  });
+
+  cont.querySelectorAll('.accion-btn.eliminar').forEach(btn => {
+    btn.addEventListener('click', () => eliminarSolicitud(btn.dataset.id, btn));
+  });
+}
+
+async function guardarEdicionSolicitud(id, btnEl) {
+  const fila = btnEl.closest('tr');
+  const iniciales = fila.querySelector('.edit-iniciales').value;
+  const fechaInicio = fila.querySelector('.edit-inicio').value;
+  const fechaFin = fila.querySelector('.edit-fin').value;
+  const diasHabiles = Number(fila.querySelector('.edit-dias').value);
+  const comentario = fila.querySelector('.edit-comentario').value;
+  const toast = document.getElementById('solicitudesToast');
+
+  if (!iniciales || !fechaInicio || !fechaFin || !diasHabiles) {
+    toast.className = 'toast err';
+    toast.textContent = 'Completa persona, fechas y días antes de guardar.';
+    return;
+  }
+
+  btnEl.disabled = true;
+  btnEl.textContent = 'Guardando…';
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'updateSolicitud',
+        record: { id, iniciales, fechaInicio, fechaFin, diasHabiles, comentario }
+      })
+    });
+    const data = await res.json();
+    if (data.error || data.ok === false) throw new Error(data.error || 'Error desconocido');
+
+    toast.className = 'toast ok';
+    toast.textContent = 'Solicitud actualizada.';
+    solicitudEditandoId = null;
+
+    await cargarDatos();
+  } catch (err) {
+    toast.className = 'toast err';
+    toast.textContent = 'No se pudo guardar: ' + err.message;
+    btnEl.disabled = false;
+    btnEl.textContent = 'Guardar';
+  }
+}
+
+async function eliminarSolicitud(id, btnEl) {
+  if (!confirm('¿Eliminar esta solicitud de vacaciones? Esta acción no se puede deshacer.')) return;
+
+  const toast = document.getElementById('solicitudesToast');
+  btnEl.disabled = true;
+  btnEl.textContent = 'Eliminando…';
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'deleteSolicitud', id })
+    });
+    const data = await res.json();
+    if (data.error || data.ok === false) throw new Error(data.error || 'Error desconocido');
+
+    toast.className = 'toast ok';
+    toast.textContent = 'Solicitud eliminada.';
+
+    await cargarDatos();
+  } catch (err) {
+    toast.className = 'toast err';
+    toast.textContent = 'No se pudo eliminar: ' + err.message;
     btnEl.disabled = false;
     btnEl.textContent = 'Eliminar';
   }
