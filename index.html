@@ -240,18 +240,6 @@
   .toast.ok{ background:var(--green-tint); color:var(--green); display:block; }
   .toast.err{ background:#F7E7E5; color:var(--red); display:block; }
 
-  /* Liquidaciones */
-  .liq-emp-group{ margin-bottom:28px; }
-  .liq-emp-nombre{ font-family:'Fraunces',serif; font-style:italic; font-weight:500; font-size:15.5px; margin-bottom:6px; }
-  .liq-row{ display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
-  .liq-mes{ color:var(--ink); }
-  .liq-link{ font-size:12.5px; color:var(--green); text-decoration:none; font-weight:500; }
-  .liq-link:hover{ text-decoration:underline; }
-  .liq-empty{ color:var(--muted); font-size:12.5px; padding:6px 0; }
-  .liq-sinasignar-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:10px 0; border-bottom:1px solid var(--line); font-size:13px; }
-  .liq-sinasignar-info .archivo{ font-weight:500; }
-  .liq-sinasignar-info .candidatos{ color:var(--amber); font-size:12px; margin-top:2px; }
-
   /* Saldos */
   .saldo-row{
     display:grid;
@@ -405,7 +393,6 @@
   <button class="tab-btn" data-view="resumen">Resumen por persona</button>
   <button class="tab-btn" data-view="listado">Listado mensual</button>
   <button class="tab-btn" data-view="solicitudes">Solicitudes</button>
-  <button class="tab-btn" data-view="liquidaciones">Liquidaciones</button>
 </nav>
 
 <main>
@@ -536,19 +523,6 @@
     <div id="solicitudesContainer"><div class="loading">Cargando…</div></div>
   </section>
 
-  <!-- LIQUIDACIONES (admin: ver de todos + log de archivos sin asignar) -->
-  <section class="view" id="view-liquidaciones">
-    <h2 class="section-title">Liquidaciones de sueldo</h2>
-    <p class="section-sub">Últimos 12 meses, agrupados por persona. Solo se muestran aquí si el nombre del archivo coincidió de forma inequívoca con alguien de "Empleados".</p>
-    <div id="liquidacionesContainer"><div class="loading">Cargando…</div></div>
-
-    <div id="liquidacionesSinAsignarWrap" style="display:none; margin-top:36px;">
-      <h3 style="font-family:'Fraunces',serif; font-style:italic; font-weight:500; font-size:16px; margin:0 0 6px;">Sin asignar automáticamente</h3>
-      <p class="section-sub" style="margin-bottom:16px;">Estos archivos no calzaron con exactamente una persona (0 o varios candidatos). Revísalos: normalmente basta con estandarizar el nombre en el archivo o en la hoja "Empleados".</p>
-      <div id="liquidacionesSinAsignarContainer"></div>
-    </div>
-  </section>
-
 </main>
 
 <script>
@@ -573,10 +547,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('view-' + btn.dataset.view).classList.add('active');
-
-    if (btn.dataset.view === 'liquidaciones' && !liquidacionesCargadas) {
-      cargarLiquidacionesAdmin();
-    }
   });
 });
 
@@ -1279,65 +1249,6 @@ async function guardarEdicionSolicitud(id, btnEl) {
     toast.textContent = 'No se pudo guardar: ' + err.message;
     btnEl.disabled = false;
     btnEl.textContent = 'Guardar';
-  }
-}
-
-// ---- Vista Liquidaciones (admin) ----
-let liquidacionesCargadas = false;
-
-function etiquetaMes(nombreMes, anio) {
-  return nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1) + ' ' + anio;
-}
-
-async function cargarLiquidacionesAdmin() {
-  const cont = document.getElementById('liquidacionesContainer');
-  const wrapSinAsignar = document.getElementById('liquidacionesSinAsignarWrap');
-  const contSinAsignar = document.getElementById('liquidacionesSinAsignarContainer');
-  cont.innerHTML = '<div class="loading">Cargando… (puede tardar unos segundos, recorre las carpetas de Drive)</div>';
-
-  try {
-    const res = await fetch(APPS_SCRIPT_URL + '?action=getLiquidacionesAdmin');
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-
-    liquidacionesCargadas = true;
-
-    if (!data.porEmpleado.length) {
-      cont.innerHTML = '<div class="empty-state">No hay trabajadores en la hoja Empleados.</div>';
-    } else {
-      cont.innerHTML = data.porEmpleado.map(emp => {
-        const filas = emp.liquidaciones.length
-          ? emp.liquidaciones.map(l => `
-              <div class="liq-row">
-                <div class="liq-mes">${etiquetaMes(l.nombreMes, l.anio)}</div>
-                <a class="liq-link" href="${APPS_SCRIPT_URL}?action=descargarLiquidacion&fileId=${encodeURIComponent(l.fileId)}" target="_blank" rel="noopener">Ver / Descargar PDF</a>
-              </div>`).join('')
-          : '<div class="liq-empty">Sin liquidaciones en los últimos 12 meses.</div>';
-
-        return `
-          <div class="liq-emp-group">
-            <div class="liq-emp-nombre">${emp.nombre}</div>
-            ${filas}
-          </div>`;
-      }).join('');
-    }
-
-    if (data.sinAsignar && data.sinAsignar.length) {
-      wrapSinAsignar.style.display = 'block';
-      contSinAsignar.innerHTML = data.sinAsignar.map(s => `
-        <div class="liq-sinasignar-row">
-          <div class="liq-sinasignar-info">
-            <div class="archivo">${s.fileName} — ${etiquetaMes(s.nombreMes, s.anio)}</div>
-            <div class="candidatos">${s.candidatos.length ? 'Candidatos ambiguos: ' + s.candidatos.join(', ') : 'Ningún trabajador coincide con el nombre del archivo.'}</div>
-          </div>
-          <a class="liq-link" href="${APPS_SCRIPT_URL}?action=descargarLiquidacion&fileId=${encodeURIComponent(s.fileId)}" target="_blank" rel="noopener">Ver PDF</a>
-        </div>`).join('');
-    } else {
-      wrapSinAsignar.style.display = 'none';
-    }
-  } catch (err) {
-    liquidacionesCargadas = false;
-    cont.innerHTML = '<div class="empty-state">No se pudo cargar: ' + err.message + '</div>';
   }
 }
 
