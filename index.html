@@ -527,7 +527,7 @@
 
 <script>
 // ======= CONFIGURACIÓN =======
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwksSaKepYikxdX5QpnT_2p0h8fgfQppT_qDvBqWspTZ6jY3_z_giYNz3aXXKLKhwci/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWSrFYWCbDjO9j2zyVJ9SfoIUdpKcvwL2qha2Y3_naFWYDfYvq6C2oMuC5c0rReGdM/exec';
 // ==============================
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -1225,7 +1225,7 @@ async function guardarEdicionSolicitud(id, btnEl) {
   }
 
   btnEl.disabled = true;
-  btnEl.textContent = 'Guardando….';
+  btnEl.textContent = 'Guardando…';
 
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
@@ -1283,7 +1283,7 @@ async function eliminarSolicitud(id, btnEl) {
 if (MODO_PERSONAL) {
   cargarResumenPersonal();
 } else {
-  cargarDatos(); 
+  cargarDatos();
 }
 </script>
 
